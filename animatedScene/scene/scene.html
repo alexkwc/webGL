@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+    <script id="basic-vertex-shader" type="x-shader/x-vertex">
+        attribute vec4 a_position;
+
+        uniform mat4 u_matrix;
+        uniform vec4 u_color;
+
+        varying vec4 v_color;
+
+        void
+        main()
+        {
+            gl_Position = u_matrix * a_position;
+            v_color = u_color;
+        }
+    </script>
+    <script id="color-glass-fragment-shader" type="x-shader/x-fragment">
+        precision mediump float;
+
+        varying vec4 v_color;
+
+        void
+        main()
+        {
+            gl_FragColor = v_color;
+        }
+    </script>
+    <script id="vertex-shader" type="x-shader/x-vertex">
+        attribute vec4 a_position;
+        attribute vec4 a_normal;
+
+        uniform mat4 u_modelMatrix;
+        uniform mat4 u_viewMatrix;
+        uniform mat4 u_normalMVMatrix;
+        uniform vec4 u_lightPosition;
+        uniform vec4 u_objectColor;
+        uniform mat4 u_shadowViewMatrix;
+
+        varying vec4 v_position;
+        varying vec4 v_normal;
+        varying vec4 v_lightPosition;
+        varying vec4 v_color;
+        varying vec4 v_textureCoord;
+
+        void
+        main()
+        {
+            gl_Position = u_viewMatrix * u_modelMatrix * a_position;
+            v_position = gl_Position;
+            v_normal = u_normalMVMatrix * a_normal;
+            v_lightPosition = u_viewMatrix * u_lightPosition;
+            v_color = u_objectColor;
+            v_textureCoord = u_shadowViewMatrix * u_modelMatrix * a_position;
+        }
+    </script>
+    <script id="fragment-shader" type="x-shader/x-fragment">
+        precision mediump float;
+
+        varying vec4 v_position;
+        varying vec4 v_normal;
+        varying vec4 v_lightPosition;
+        varying vec4 v_color;
+        varying vec4 v_textureCoord;
+
+        void
+        main()
+        {
+            vec3 lightVector = (v_lightPosition - v_position).xyz;
+            float defuse = dot(
+                normalize(lightVector),
+                normalize(v_normal.xyz)
+            );
+            vec3 reflection = 2.0 * normalize(v_normal.xyz) * dot(
+                normalize(v_normal.xyz),
+                normalize(lightVector)
+            ) - normalize(lightVector);
+            float specular = pow(
+                dot(normalize(reflection),
+                normalize(-1.0 * v_position.xyz)),
+                5.0
+            );
+            gl_FragColor.rgb = min(max(defuse, 0.1), 1.0) * v_color.rgb;
+            gl_FragColor.a = v_color.a;
+        }
+    </script>
+    <script id="plane-fragment-shader" type="x-shader/x-fragment">
+        precision mediump float;
+
+        varying vec4 v_position;
+        varying vec4 v_normal;
+        varying vec4 v_lightPosition;
+        varying vec4 v_color;
+        varying vec4 v_textureCoord;
+
+        uniform sampler2D u_texture;
+
+        void
+        main()
+        {
+            vec3 lightVector = (v_lightPosition - v_position).xyz;
+            float defuse = dot(
+                normalize(lightVector),
+                normalize(v_normal.xyz)
+            );
+            vec3 textureCoord = (v_textureCoord.xyz / v_textureCoord.w) * 0.5 + 0.5;
+            float depth = texture2D(u_texture, textureCoord.xy).r;
+            if (depth + 0.05 <= textureCoord.z * 0.5 + 0.5) {
+                gl_FragColor.rgb = max(defuse, 0.2) * v_color.rgb;
+            } else {
+                gl_FragColor.rgb = vec3(0.1, 0.1, 0.1);
+            }
+            gl_FragColor.a = v_color.a;
+        }
+    </script>
+    <script id="shadow-vertex-shader" type="x-shader/x-vertex">
+        attribute vec4 a_position;
+
+        uniform mat4 u_modelMatrix;
+        uniform mat4 u_viewMatrix;
+
+        varying vec4 v_position;
+        void
+        main()
+        {
+            gl_Position = u_viewMatrix * u_modelMatrix * a_position;
+            v_position = gl_Position;
+        }
+    </script>
+    <script id="shadow-fragment-shader" type="x-shader/x-fragment">
+        precision mediump float;
+
+        uniform float near;
+        uniform float far;
+        varying vec4 v_position;
+
+        void
+        main()
+        {
+            float depth = (gl_FragCoord.z) * 0.5 + 0.5;
+            float linearDepth = (
+                2.0 * near * far / (near + far - depth * (far - near))
+            );
+            gl_FragColor = vec4(linearDepth, 0.0, 0.0, 1.0);
+        }
+    </script>
+    <script type="text/javascript" src="../Common/webgl-utils.js"></script>
+    <script type="text/javascript" src="../Common/initShaders.js"></script>
+    <script type="text/javascript" src="../Common/MV.js"></script>
+    <script type="text/javascript" src="scene.js"></script>
+    <body>
+        <canvas id="gl-canvas" width="512" height="512">
+            Your browser does not support HTML5 Canvas element
+        </canvas>
+    </body>
+</html>
